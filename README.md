@@ -40,6 +40,6 @@ On free(ptr), the allocator:
 ## Building and Running
 Compile with:
 ```bash
-gcc -std=c99 -Wall -O2 -o allocator allocator.c
+gcc -std=c99 -Wall -O2 -o mem-alloc main.c
 ```
 Use the provided mem_lloc() and mem_free() in place of standard malloc/free.
