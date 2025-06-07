@@ -24,7 +24,7 @@ typedef struct free_chunk {
 void* map_start = NULL;
 void* map_end = NULL;
 
-// free_head fd-> <-bk old_free_head
+// free_head fd-> <-bk old_free_head fd ->
 free_chunk* free_head;
 
 void print_free_block(free_chunk* chunk) {
@@ -176,34 +176,6 @@ void* mem_malloc(size_t size) {
         }
     }
     return (void*)(alloc_block + 1);
-        
-
-    // if (free_head->meta_data.size > size) {
-    //     // fix this line:
-    //     size_t prev_isused = free_head->meta_data.size & PREV_INUSE;
-    //     size_t head_size = free_head->meta_data.size & ~0xF;
-    //     meta_data* meta = (meta_data*)free_head;
-    //     printf("ptr: %p\n", meta);
-    //     // printf("Current prev_inuse: %x, and var prev_isused: %x\n", meta->size & PREV_INUSE, prev_isused);
-    //     meta->size = (size + 15) & ~0xF | prev_isused;
-
-    //     // split the free chunk
-    //     if (head_size - meta->size > MIN_CHUNK_BODY_SIZE) {
-    //         free_chunk* new_head = (free_chunk*)get_next_chunk(meta);
-    //         new_head->meta_data.size = head_size - (meta->size & ~0xF);
-    //         new_head->meta_data.size |= PREV_INUSE;
-    //         new_head->fd = free_head->fd;
-    //         if (free_head->fd != NULL)
-    //             free_head->fd->bk = new_head;
-    //         free_head = new_head;
-    //     } else {
-    //         // TODO: implement if not resizing
-    //     }
-    //     return (void*)(meta + 1);
-    // } else {
-    //     return NULL;
-    // }
-    
 }
 
 void mem_free(void* ptr) {
@@ -213,22 +185,21 @@ void mem_free(void* ptr) {
     }
 
     printf("\nFree request for: %p\n", ptr);
-    // free block
+
     meta_data* meta = ((meta_data*)ptr-1);
 
     if (meta < map_start || meta > map_end) {
         perror("Invalid pointer - metadata out of mapped region\n");
         return;
     }
-    // printf("Prev_inuse: %x\n", meta->size & PREV_INUSE);
 
     free_chunk* new_head = (free_chunk*)meta;
 
     size_t block_size = meta->size & ~0xF;
     size_t block_inuse = meta->size & PREV_INUSE;
 
+    // Coalesce backwards
     if (!(block_size & PREV_INUSE) && (void*)meta > map_start) {
-        // coalesce
         printf("coalescing backwards\n");
         free_chunk* prev_adjacent_chunk = (free_chunk*)get_prev_chunk(new_head);
         
@@ -246,6 +217,7 @@ void mem_free(void* ptr) {
         }
     }
 
+    // Coalesce forwards
     meta_data* next_adjacent_meta = get_next_chunk((meta_data*)new_head);
     if (next_adjacent_meta != NULL) {
         printf("coalescing forwards\n");
@@ -259,6 +231,7 @@ void mem_free(void* ptr) {
         }
     }
     add_chunk_to_free_list(new_head);
+
     // set next chunk's prev_size and reset prev_inuse
     meta_data* next_chunk = get_next_chunk((meta_data*)new_head);
     if (next_chunk != NULL) {
@@ -266,9 +239,6 @@ void mem_free(void* ptr) {
         next_chunk->size &= ~PREV_INUSE;
     }
     printf("Free successful for original ptr. Final free block: %p, new payload: %zu\n", (void*)new_head, block_size);
-    // printf("Before reset: %x\n", next_chunk->size);
-    
-    // printf("Reset next prev_inuse: %x\n", next_chunk->size);
 }
 
 void print_nums(int* nums, size_t size) {
@@ -287,16 +257,6 @@ void create_nums(int** nums, size_t size) {
 }
 
 int main() {
-    // int* nums;
-    // size_t size = 50;
-    // create_nums(&nums, size);
-    // // mem_free(nums);
-    // int* nums2;
-    // size_t size2 = 40;
-    // create_nums(&nums2, size2);
-    // mem_free(nums2);
-    // mem_free(nums);
-    // print_nums(nums2, size2);
 
     int* nums1;
     int* nums2;
@@ -332,21 +292,7 @@ int main() {
 
     printf("meta data size: %ld\n", sizeof(meta_data));
 
-    // create_nums(&nums1, 70);
-    
-    // create_nums(&nums2, 60);
-    // mem_free(nums1);
-
-    // mem_free(nums2);
-
-    // print_nums(nums1, 50);
-
-    // printf("\n\nAll blocks:\n");
-    // print_all_free(free_head);
-
     munmap(map_start, MAPSIZE);
-
-
 
     return 0;
 }
